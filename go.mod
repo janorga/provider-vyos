@@ -1,4 +1,4 @@
-module github.com/crossplane/provider-template
+module github.com/janorga/provider-vyos
 
 go 1.20
 
