@@ -20,11 +20,14 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/jeremywohl/flatten"
+
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 	"github.com/crossplane/crossplane-runtime/pkg/connection"
 	"github.com/crossplane/crossplane-runtime/pkg/controller"
 	"github.com/crossplane/crossplane-runtime/pkg/event"
@@ -35,6 +38,7 @@ import (
 	"github.com/janorga/provider-vyos/apis/firewall/v1alpha1"
 	apisv1alpha1 "github.com/janorga/provider-vyos/apis/v1alpha1"
 	"github.com/janorga/provider-vyos/internal/features"
+	vyosclient "github.com/janorga/vyos-client-go/client-insecure"
 )
 
 const (
@@ -46,11 +50,20 @@ const (
 	errNewClient = "cannot create new Service"
 )
 
-// A NoOpService does nothing.
-type NoOpService struct{}
+// A VyOSService does nothing.
+type VyOSService struct {
+	pCLI *vyosclient.Client
+}
 
 var (
-	newNoOpService = func(_ []byte) (interface{}, error) { return &NoOpService{}, nil }
+	newVyOSService = func(apiKey []byte) (*VyOSService, error) {
+		url := "https://10.7.191.156"
+		c := vyosclient.New(url, string(apiKey[:]))
+
+		return &VyOSService{
+			pCLI: c,
+		}, nil
+	}
 )
 
 // Setup adds a controller that reconciles Firewall managed resources.
@@ -67,7 +80,7 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 		managed.WithExternalConnecter(&connector{
 			kube:         mgr.GetClient(),
 			usage:        resource.NewProviderConfigUsageTracker(mgr.GetClient(), &apisv1alpha1.ProviderConfigUsage{}),
-			newServiceFn: newNoOpService}),
+			newServiceFn: newVyOSService}),
 		managed.WithLogger(o.Logger.WithValues("controller", name)),
 		managed.WithPollInterval(o.PollInterval),
 		managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorderFor(name))),
@@ -86,7 +99,7 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 type connector struct {
 	kube         client.Client
 	usage        resource.Tracker
-	newServiceFn func(creds []byte) (interface{}, error)
+	newServiceFn func(apiKey []byte) (*VyOSService, error)
 }
 
 // Connect typically produces an ExternalClient by:
@@ -128,7 +141,7 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 type external struct {
 	// A 'client' used to connect to the external resource API. In practice this
 	// would be something like an AWS SDK client.
-	service interface{}
+	service *VyOSService
 }
 
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
@@ -139,6 +152,65 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 
 	// These fmt statements should be removed in the real implementation.
 	fmt.Printf("Observing: %+v", cr)
+
+	ruleNumber := cr.Spec.ForProvider.RuleNumber
+	valueMap := make(map[string]string)
+	valueMap["action"] = cr.Spec.ForProvider.Action
+	valueMap["destination address"] = cr.Spec.ForProvider.DestinationAddress
+	if cr.Spec.ForProvider.SourceAddress != nil && *cr.Spec.ForProvider.SourceAddress != "" {
+		valueMap["source address"] = *cr.Spec.ForProvider.SourceAddress
+	}
+
+	path := "firewall name LAN-INBOUND rule " + fmt.Sprint(ruleNumber)
+
+	res, err := c.service.pCLI.Config.Show(ctx, path)
+
+	if err != nil {
+		cr.Status.SetConditions(xpv1.Unavailable())
+		return managed.ExternalObservation{
+			ResourceExists:   false,
+			ResourceUpToDate: false,
+		}, errors.New("errInExternalAPICall")
+	}
+
+	if res == nil {
+		cr.Status.SetConditions(xpv1.Unavailable())
+		return managed.ExternalObservation{
+			ResourceExists:   false,
+			ResourceUpToDate: false,
+		}, nil
+	}
+
+	isSynced := func(res any) bool {
+		if rule, ok := res.(map[string]any); ok {
+			flat, _ := flatten.Flatten(rule, "", flatten.DotStyle)
+
+			if flat["action"] != cr.Spec.ForProvider.Action {
+				return false
+			}
+			if flat["destination.address"] != cr.Spec.ForProvider.DestinationAddress {
+				return false
+			}
+			if sa, ok := flat["source.address"]; ok {
+				if sa != cr.Spec.ForProvider.SourceAddress {
+					return false
+				}
+			}
+			return true
+		}
+		return false
+	}
+
+	if isSynced(res) {
+		fmt.Println("**************** IS UP TO DATE 🔥")
+		cr.Status.SetConditions(xpv1.Available())
+	} else {
+		fmt.Println("**************** IS NOT UP TO DATE 💔")
+		return managed.ExternalObservation{
+			ResourceExists:   true,
+			ResourceUpToDate: false,
+		}, nil
+	}
 
 	return managed.ExternalObservation{
 		// Return false when the external resource does not exist. This lets
@@ -163,7 +235,28 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 		return managed.ExternalCreation{}, errors.New(errNotFirewall)
 	}
 
-	fmt.Printf("Creating: %+v", cr)
+	fmt.Printf("Tying to Create: %+v", cr)
+
+	ruleNumber := cr.Spec.ForProvider.RuleNumber
+	valueMap := make(map[string]string)
+	valueMap["action"] = cr.Spec.ForProvider.Action
+	valueMap["destination address"] = cr.Spec.ForProvider.DestinationAddress
+	if cr.Spec.ForProvider.SourceAddress != nil && *cr.Spec.ForProvider.SourceAddress != "" {
+		valueMap["source address"] = *cr.Spec.ForProvider.SourceAddress
+	}
+
+	path := "firewall name LAN-INBOUND rule " + fmt.Sprint(ruleNumber)
+
+	cr.Status.SetConditions(xpv1.Creating())
+
+	err := c.service.pCLI.Config.Set(ctx, path, valueMap)
+
+	if err != nil {
+		fmt.Printf("Cannot create: %+v", cr)
+		fmt.Printf("Error: %+v", err)
+	} else {
+		fmt.Printf("Creating: %+v", cr)
+	}
 
 	return managed.ExternalCreation{
 		// Optionally return any details that may be required to connect to the

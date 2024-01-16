@@ -27,12 +27,18 @@ import (
 
 // FirewallParameters are the configurable fields of a Firewall.
 type FirewallParameters struct {
-	ConfigurableField string `json:"configurableField"`
+	RuleNumber int32 `json:"ruleNumber"`
+
+	// +optional
+	SourceAddress *string `json:"sourceAddress"`
+
+	DestinationAddress string `json:"destinationAddress"`
+	Action             string `json:"action"`
 }
 
 // FirewallObservation are the observable fields of a Firewall.
 type FirewallObservation struct {
-	ObservableField string `json:"observableField,omitempty"`
+	State string `json:"state"`
 }
 
 // A FirewallSpec defines the desired state of a Firewall.

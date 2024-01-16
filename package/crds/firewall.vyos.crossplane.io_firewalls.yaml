@@ -67,10 +67,19 @@ spec:
               forProvider:
                 description: FirewallParameters are the configurable fields of a Firewall.
                 properties:
-                  configurableField:
+                  action:
+                    type: string
+                  destinationAddress:
+                    type: string
+                  ruleNumber:
+                    format: int32
+                    type: integer
+                  sourceAddress:
                     type: string
                 required:
-                - configurableField
+                - action
+                - destinationAddress
+                - ruleNumber
                 type: object
               managementPolicies:
                 default:
@@ -275,8 +284,10 @@ spec:
               atProvider:
                 description: FirewallObservation are the observable fields of a Firewall.
                 properties:
-                  observableField:
+                  state:
                     type: string
+                required:
+                - state
                 type: object
               conditions:
                 description: Conditions of the resource.
