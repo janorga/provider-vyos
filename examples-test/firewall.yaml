@@ -1,7 +1,7 @@
 apiVersion: firewall.vyos.crossplane.io/v1alpha1
 kind: Firewall
 metadata:
-  name: example
+  name: rule-2505
 spec:
   forProvider:
     ruleNumber: 2505
