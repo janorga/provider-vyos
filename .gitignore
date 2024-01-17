@@ -7,5 +7,6 @@ cover.out
 .vscode
 .idea
 .DS_Store
+*xpkg
 
 secret.yaml
