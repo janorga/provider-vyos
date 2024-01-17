@@ -271,6 +271,25 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 		return managed.ExternalUpdate{}, errors.New(errNotFirewall)
 	}
 
+	ruleNumber := cr.Spec.ForProvider.RuleNumber
+	valueMap := make(map[string]string)
+	valueMap["action"] = cr.Spec.ForProvider.Action
+	valueMap["destination address"] = cr.Spec.ForProvider.DestinationAddress
+	if cr.Spec.ForProvider.SourceAddress != nil && *cr.Spec.ForProvider.SourceAddress != "" {
+		valueMap["source address"] = *cr.Spec.ForProvider.SourceAddress
+	}
+
+	path := "firewall name LAN-INBOUND rule " + fmt.Sprint(ruleNumber)
+
+	err := c.service.pCLI.Config.Set(ctx, path, valueMap)
+
+	if err != nil {
+		fmt.Printf("Cannot create: %+v", cr)
+		fmt.Printf("Error: %+v", err)
+	} else {
+		fmt.Printf("Creating: %+v", cr)
+	}
+
 	fmt.Printf("Updating: %+v", cr)
 
 	return managed.ExternalUpdate{
@@ -286,7 +305,20 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
 		return errors.New(errNotFirewall)
 	}
 
-	fmt.Printf("Deleting: %+v", cr)
+	ruleNumber := cr.Spec.ForProvider.RuleNumber
+
+	path := "firewall name LAN-INBOUND rule"
+
+	cr.Status.SetConditions(xpv1.Creating())
+
+	err := c.service.pCLI.Config.Delete(ctx, path, fmt.Sprint(ruleNumber))
+
+	if err != nil {
+		fmt.Printf("Cannot delete: %+v", cr)
+		fmt.Printf("Error: %+v", err)
+	} else {
+		fmt.Printf("Deleting: %+v", cr)
+	}
 
 	return nil
 }
