@@ -93,8 +93,11 @@ spec:
                       - ruleNumber
                       type: object
                     type: array
+                  vyosUrl:
+                    type: string
                 required:
                 - rules
+                - vyosUrl
                 type: object
               managementPolicies:
                 default:

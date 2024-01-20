@@ -4,6 +4,7 @@ metadata:
   name: ruleset-a
 spec:
   forProvider:
+    vyosUrl: "https://10.7.191.156"
     rules:
     - ruleNumber: 2505
       protocol: "tcp"

@@ -39,7 +39,8 @@ type RuleParameters struct {
 
 // RulesetParameters are the configurable fields of a Ruleset.
 type RulesetParameters struct {
-	Rules []RuleParameters `json:"rules"`
+	VyosUrl string           `json:"vyosUrl"`
+	Rules   []RuleParameters `json:"rules"`
 }
 
 // RulesetObservation are the observable fields of a Ruleset.

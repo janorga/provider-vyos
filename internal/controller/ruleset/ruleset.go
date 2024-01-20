@@ -56,10 +56,8 @@ type VyOSService struct {
 }
 
 var (
-	newVyOSService = func(apiKey []byte) (*VyOSService, error) {
-		url := "https://10.7.191.156"
-		c := vyosclient.New(url, string(apiKey[:]))
-
+	newVyOSService = func(vyosurl string, apiKey []byte) (*VyOSService, error) {
+		c := vyosclient.New(vyosurl, string(apiKey[:]))
 		return &VyOSService{
 			pCLI: c,
 		}, nil
@@ -99,7 +97,7 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 type connector struct {
 	kube         client.Client
 	usage        resource.Tracker
-	newServiceFn func(apiKey []byte) (*VyOSService, error)
+	newServiceFn func(vyosurl string, apiKey []byte) (*VyOSService, error)
 }
 
 // Connect typically produces an ExternalClient by:
@@ -128,7 +126,8 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 		return nil, errors.Wrap(err, errGetCreds)
 	}
 
-	svc, err := c.newServiceFn(data)
+	vyosurl := cr.Spec.ForProvider.VyosUrl
+	svc, err := c.newServiceFn(vyosurl, data)
 	if err != nil {
 		return nil, errors.Wrap(err, errNewClient)
 	}
