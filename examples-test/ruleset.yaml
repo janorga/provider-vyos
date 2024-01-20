@@ -1,0 +1,21 @@
+apiVersion: firewall.vyos.crossplane.io/v1alpha1
+kind: Ruleset
+metadata:
+  name: ruleset-a
+spec:
+  forProvider:
+    rules:
+    - ruleNumber: 3505
+      protocol: "tcp"
+      action: "accept"
+      destination:
+        address: "5.5.5.5"
+        port: 80
+    - ruleNumber: 3506
+      protocol: "tcp"
+      action: "accept"
+      destination:
+        address: "5.5.5.5"
+        port: 443
+  providerConfigRef:
+    name: default

@@ -22,6 +22,7 @@ import (
 
 	"github.com/janorga/provider-vyos/internal/controller/config"
 	"github.com/janorga/provider-vyos/internal/controller/firewall"
+	"github.com/janorga/provider-vyos/internal/controller/ruleset"
 )
 
 // Setup creates all VyOS controllers with the supplied logger and adds them to
@@ -30,6 +31,7 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 	for _, setup := range []func(ctrl.Manager, controller.Options) error{
 		config.Setup,
 		firewall.Setup,
+		ruleset.Setup,
 	} {
 		if err := setup(mgr, o); err != nil {
 			return err
