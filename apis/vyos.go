@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	firewallv1alpha1 "github.com/janorga/provider-vyos/apis/firewall/v1alpha1"
+	rulesetv1alpha1 "github.com/janorga/provider-vyos/apis/firewall/v1alpha1"
 	vyosv1alpha1 "github.com/janorga/provider-vyos/apis/v1alpha1"
 )
 
@@ -29,6 +30,7 @@ func init() {
 	AddToSchemes = append(AddToSchemes,
 		vyosv1alpha1.SchemeBuilder.AddToScheme,
 		firewallv1alpha1.SchemeBuilder.AddToScheme,
+		rulesetv1alpha1.SchemeBuilder.AddToScheme,
 	)
 }
 

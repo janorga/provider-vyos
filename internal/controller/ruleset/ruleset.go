@@ -14,18 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package firewall
+package ruleset
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/jeremywohl/flatten"
-
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/jeremywohl/flatten"
 
 	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 	"github.com/crossplane/crossplane-runtime/pkg/connection"
@@ -42,7 +42,7 @@ import (
 )
 
 const (
-	errNotFirewall  = "managed resource is not a Firewall custom resource"
+	errNotRuleset   = "managed resource is not a Ruleset custom resource"
 	errTrackPCUsage = "cannot track ProviderConfig usage"
 	errGetPC        = "cannot get ProviderConfig"
 	errGetCreds     = "cannot get credentials"
@@ -66,9 +66,9 @@ var (
 	}
 )
 
-// Setup adds a controller that reconciles Firewall managed resources.
+// Setup adds a controller that reconciles Ruleset managed resources.
 func Setup(mgr ctrl.Manager, o controller.Options) error {
-	name := managed.ControllerName(v1alpha1.FirewallGroupKind)
+	name := managed.ControllerName(v1alpha1.RulesetGroupKind)
 
 	cps := []managed.ConnectionPublisher{managed.NewAPISecretPublisher(mgr.GetClient(), mgr.GetScheme())}
 	if o.Features.Enabled(features.EnableAlphaExternalSecretStores) {
@@ -76,7 +76,7 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 	}
 
 	r := managed.NewReconciler(mgr,
-		resource.ManagedKind(v1alpha1.FirewallGroupVersionKind),
+		resource.ManagedKind(v1alpha1.RulesetGroupVersionKind),
 		managed.WithExternalConnecter(&connector{
 			kube:         mgr.GetClient(),
 			usage:        resource.NewProviderConfigUsageTracker(mgr.GetClient(), &apisv1alpha1.ProviderConfigUsage{}),
@@ -90,7 +90,7 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 		Named(name).
 		WithOptions(o.ForControllerRuntime()).
 		WithEventFilter(resource.DesiredStateChanged()).
-		For(&v1alpha1.Firewall{}).
+		For(&v1alpha1.Ruleset{}).
 		Complete(ratelimiter.NewReconciler(name, r, o.GlobalRateLimiter))
 }
 
@@ -108,9 +108,9 @@ type connector struct {
 // 3. Getting the credentials specified by the ProviderConfig.
 // 4. Using the credentials to form a client.
 func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.ExternalClient, error) {
-	cr, ok := mg.(*v1alpha1.Firewall)
+	cr, ok := mg.(*v1alpha1.Ruleset)
 	if !ok {
-		return nil, errors.New(errNotFirewall)
+		return nil, errors.New(errNotRuleset)
 	}
 
 	if err := c.usage.Track(ctx, mg); err != nil {
@@ -145,26 +145,16 @@ type external struct {
 }
 
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
-	cr, ok := mg.(*v1alpha1.Firewall)
+	cr, ok := mg.(*v1alpha1.Ruleset)
 	if !ok {
-		return managed.ExternalObservation{}, errors.New(errNotFirewall)
+		return managed.ExternalObservation{}, errors.New(errNotRuleset)
 	}
 
 	// These fmt statements should be removed in the real implementation.
 	fmt.Printf("Observing: %+v", cr)
-
-	ruleNumber := cr.Spec.ForProvider.RuleNumber
-	valueMap := make(map[string]string)
-	valueMap["action"] = cr.Spec.ForProvider.Action
-	valueMap["destination address"] = cr.Spec.ForProvider.DestinationAddress
-	if cr.Spec.ForProvider.SourceAddress != nil && *cr.Spec.ForProvider.SourceAddress != "" {
-		valueMap["source address"] = *cr.Spec.ForProvider.SourceAddress
-	}
-
-	path := "firewall name LAN-INBOUND rule " + fmt.Sprint(ruleNumber)
+	path := "firewall name LAN-INBOUND rule"
 
 	res, err := c.service.pCLI.Config.Show(ctx, path)
-
 	if err != nil {
 		cr.Status.SetConditions(xpv1.Unavailable())
 		return managed.ExternalObservation{
@@ -173,45 +163,74 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		}, errors.New("errInExternalAPICall")
 	}
 
-	if res == nil {
+	resMap, ok := res.(map[string]any)
+	if !ok {
+		cr.Status.SetConditions(xpv1.Unavailable())
+		return managed.ExternalObservation{
+			ResourceExists:   false,
+			ResourceUpToDate: false,
+		}, errors.New("errInExternalAPICall")
+	}
+
+	resflat, err := flatten.Flatten(resMap, "", flatten.DotStyle)
+	if err != nil {
+		cr.Status.SetConditions(xpv1.Unavailable())
+		return managed.ExternalObservation{
+			ResourceExists:   false,
+			ResourceUpToDate: false,
+		}, errors.New("errInParsingAPIResponse")
+	}
+	rules := cr.Spec.ForProvider.Rules
+
+	resource_exists := false
+	resource_modified := false
+
+	for _, rule := range rules {
+		ruleNumber := fmt.Sprint(rule.RuleNumber)
+
+		// The resource exist if at least one rule exist
+		// The resource is modified if at least one rule is modified
+
+		// Check if al rules as a resource exist
+		if _, ok := resflat[ruleNumber+".action"]; ok {
+
+			resource_exists = resource_exists || ok
+			//Check if up to date
+			if resource_exists && !resource_modified {
+
+				if rule.Action != resflat[ruleNumber+".action"] {
+					resource_modified = true
+				}
+				if rule.Protocol != resflat[ruleNumber+".protocol"] {
+					resource_modified = true
+				}
+				if rule.Destination.Address != resflat[ruleNumber+".destination.address"] {
+					resource_modified = true
+				}
+				if fmt.Sprint(rule.Destination.Port) != resflat[ruleNumber+".destination.port"] {
+					resource_modified = true
+				}
+			}
+		} else {
+			continue
+		}
+	}
+	if !resource_exists {
 		cr.Status.SetConditions(xpv1.Unavailable())
 		return managed.ExternalObservation{
 			ResourceExists:   false,
 			ResourceUpToDate: false,
 		}, nil
 	}
-
-	isSynced := func(res any) bool {
-		if rule, ok := res.(map[string]any); ok {
-			flat, _ := flatten.Flatten(rule, "", flatten.DotStyle)
-
-			if flat["action"] != cr.Spec.ForProvider.Action {
-				return false
-			}
-			if flat["destination.address"] != cr.Spec.ForProvider.DestinationAddress {
-				return false
-			}
-			if sa, ok := flat["source.address"]; ok {
-				if sa != cr.Spec.ForProvider.SourceAddress {
-					return false
-				}
-			}
-			return true
-		}
-		return false
-	}
-
-	if isSynced(res) {
-		fmt.Println("**************** IS UP TO DATE 🔥")
-		cr.Status.SetConditions(xpv1.Available())
-	} else {
-		fmt.Println("**************** IS NOT UP TO DATE 💔")
+	if resource_modified {
+		cr.Status.SetConditions(xpv1.Unavailable())
 		return managed.ExternalObservation{
 			ResourceExists:   true,
 			ResourceUpToDate: false,
 		}, nil
 	}
 
+	cr.Status.SetConditions(xpv1.Available())
 	return managed.ExternalObservation{
 		// Return false when the external resource does not exist. This lets
 		// the managed resource reconciler know that it needs to call Create to
@@ -230,30 +249,36 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 }
 
 func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {
-	cr, ok := mg.(*v1alpha1.Firewall)
+	cr, ok := mg.(*v1alpha1.Ruleset)
 	if !ok {
-		return managed.ExternalCreation{}, errors.New(errNotFirewall)
+		return managed.ExternalCreation{}, errors.New(errNotRuleset)
 	}
 
-	fmt.Printf("Tying to Create: %+v", cr)
-
-	ruleNumber := cr.Spec.ForProvider.RuleNumber
-	valueMap := make(map[string]string)
-	valueMap["action"] = cr.Spec.ForProvider.Action
-	valueMap["destination address"] = cr.Spec.ForProvider.DestinationAddress
-	if cr.Spec.ForProvider.SourceAddress != nil && *cr.Spec.ForProvider.SourceAddress != "" {
-		valueMap["source address"] = *cr.Spec.ForProvider.SourceAddress
-	}
-
-	path := "firewall name LAN-INBOUND rule " + fmt.Sprint(ruleNumber)
-
+	fmt.Printf("Creating: %+v", cr)
 	cr.Status.SetConditions(xpv1.Creating())
+
+	rules := cr.Spec.ForProvider.Rules
+
+	var path string
+	valueMap := make(map[string]string)
+
+	for _, rule := range rules {
+		path = "firewall name LAN-INBOUND"
+
+		ruleNumber_string := fmt.Sprint(rule.RuleNumber)
+
+		valueMap["rule"] = fmt.Sprint(rule.RuleNumber)
+		valueMap["rule "+ruleNumber_string+" action"] = rule.Action
+		valueMap["rule "+ruleNumber_string+" protocol"] = rule.Protocol
+		valueMap["rule "+ruleNumber_string+" destination address"] = rule.Destination.Address
+		valueMap["rule "+ruleNumber_string+" destination port"] = fmt.Sprint(rule.Destination.Port)
+	}
 
 	err := c.service.pCLI.Config.Set(ctx, path, valueMap)
 
 	if err != nil {
 		fmt.Printf("Cannot create: %+v", cr)
-		fmt.Printf("Error: %+v", err)
+		fmt.Printf("Error💥💥💥💥💥💥💥💥💥💥💥💥💥💥💥💥: %+v", err)
 	} else {
 		fmt.Printf("Creating: %+v", cr)
 	}
@@ -266,31 +291,40 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 }
 
 func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.ExternalUpdate, error) {
-	cr, ok := mg.(*v1alpha1.Firewall)
+	cr, ok := mg.(*v1alpha1.Ruleset)
 	if !ok {
-		return managed.ExternalUpdate{}, errors.New(errNotFirewall)
+		return managed.ExternalUpdate{}, errors.New(errNotRuleset)
 	}
 
-	ruleNumber := cr.Spec.ForProvider.RuleNumber
+	fmt.Printf("Updating: %+v", cr)
+
+	cr.Status.SetConditions(xpv1.Creating())
+
+	rules := cr.Spec.ForProvider.Rules
+
+	var path string
 	valueMap := make(map[string]string)
-	valueMap["action"] = cr.Spec.ForProvider.Action
-	valueMap["destination address"] = cr.Spec.ForProvider.DestinationAddress
-	if cr.Spec.ForProvider.SourceAddress != nil && *cr.Spec.ForProvider.SourceAddress != "" {
-		valueMap["source address"] = *cr.Spec.ForProvider.SourceAddress
-	}
 
-	path := "firewall name LAN-INBOUND rule " + fmt.Sprint(ruleNumber)
+	for _, rule := range rules {
+		path = "firewall name LAN-INBOUND"
+
+		ruleNumber_string := fmt.Sprint(rule.RuleNumber)
+
+		valueMap["rule"] = fmt.Sprint(rule.RuleNumber)
+		valueMap["rule "+ruleNumber_string+" action"] = rule.Action
+		valueMap["rule "+ruleNumber_string+" protocol"] = rule.Protocol
+		valueMap["rule "+ruleNumber_string+" destination address"] = rule.Destination.Address
+		valueMap["rule "+ruleNumber_string+" destination port"] = fmt.Sprint(rule.Destination.Port)
+	}
 
 	err := c.service.pCLI.Config.Set(ctx, path, valueMap)
 
 	if err != nil {
 		fmt.Printf("Cannot create: %+v", cr)
-		fmt.Printf("Error: %+v", err)
+		fmt.Printf("Error💥💥💥💥💥💥💥💥💥💥💥💥💥💥💥💥: %+v", err)
 	} else {
 		fmt.Printf("Creating: %+v", cr)
 	}
-
-	fmt.Printf("Updating: %+v", cr)
 
 	return managed.ExternalUpdate{
 		// Optionally return any details that may be required to connect to the
@@ -300,24 +334,32 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 }
 
 func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
-	cr, ok := mg.(*v1alpha1.Firewall)
+	cr, ok := mg.(*v1alpha1.Ruleset)
 	if !ok {
-		return errors.New(errNotFirewall)
+		return errors.New(errNotRuleset)
 	}
 
-	ruleNumber := cr.Spec.ForProvider.RuleNumber
+	fmt.Printf("Deleting: %+v", cr)
 
-	path := "firewall name LAN-INBOUND rule"
+	cr.Status.SetConditions(xpv1.Deleting())
 
-	cr.Status.SetConditions(xpv1.Creating())
+	rules := cr.Spec.ForProvider.Rules
 
-	err := c.service.pCLI.Config.Delete(ctx, path, fmt.Sprint(ruleNumber))
+	var path string
+	valueMap := make(map[string]string)
+
+	for _, rule := range rules {
+		path = "firewall name LAN-INBOUND"
+		valueMap["rule"] = fmt.Sprint(rule.RuleNumber)
+	}
+
+	err := c.service.pCLI.Config.Delete(ctx, path, valueMap)
 
 	if err != nil {
-		fmt.Printf("Cannot delete: %+v", cr)
+		fmt.Printf("Cannot Delete: %+v", cr)
 		fmt.Printf("Error: %+v", err)
 	} else {
-		fmt.Printf("Deleting: %+v", cr)
+		fmt.Printf("Creating: %+v", cr)
 	}
 
 	return nil
