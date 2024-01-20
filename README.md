@@ -1,6 +1,6 @@
 # provider-vyos
 
-Testing a Crossplane Provider for VyOS. Based on VyOS API Client in Go from https://github.com/Foltik/vyos-client-go.
+Testing a Custom Crossplane Provider for VyOS. Based on VyOS API Client in Go from https://github.com/Foltik/vyos-client-go.
 
 `provider-vyos` is a minimal [Crossplane](https://crossplane.io/) Provider
 that is meant to be used as a vyos for implementing new Providers. It comes
