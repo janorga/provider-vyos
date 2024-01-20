@@ -346,20 +346,21 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
 	rules := cr.Spec.ForProvider.Rules
 
 	var path string
-	valueMap := make(map[string]string)
+
+	delete_rules := make(map[string]string)
 
 	for _, rule := range rules {
 		path = "firewall name LAN-INBOUND"
-		valueMap["rule"] = fmt.Sprint(rule.RuleNumber)
+		delete_rules["rule "+fmt.Sprint(rule.RuleNumber)] = ""
 	}
 
-	err := c.service.pCLI.Config.Delete(ctx, path, valueMap)
+	err := c.service.pCLI.Config.Delete(ctx, path, delete_rules)
 
 	if err != nil {
 		fmt.Printf("Cannot Delete: %+v", cr)
 		fmt.Printf("Error: %+v", err)
 	} else {
-		fmt.Printf("Creating: %+v", cr)
+		fmt.Printf("Deleted: %+v", cr)
 	}
 
 	return nil
