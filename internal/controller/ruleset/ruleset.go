@@ -211,6 +211,8 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 				}
 			}
 		} else {
+			//mark also modified if one rule is missing
+			resource_modified = true
 			continue
 		}
 	}

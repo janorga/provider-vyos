@@ -1,0 +1,26 @@
+apiVersion: example.org/v1alpha1
+kind: VyOSClusterFwRule
+metadata:
+  name: "fw-ruleset-claim"
+spec:
+  clusterName: "cluster01"
+  vyosNodes:
+    primarynode:
+      name: "vyosnode01"
+      url: "https://10.7.191.156"  
+    secondarynode:
+      name: "vyosnode02"
+      url: "https://10.7.191.157"
+  rules:
+  - ruleNumber: 3505
+    action: "accept"
+    protocol: "tcp"
+    destination:
+      address: "5.5.5.5"
+      port: 80
+  - ruleNumber: 3506
+    action: "accept"
+    protocol: "tcp"
+    destination:
+      address: "5.5.5.6"
+      port: 80

@@ -1,0 +1,79 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata: 
+  name: vyosclusterfwrules.example.org
+spec:
+  group: example.org
+  names:
+    kind: VyOSClusterFwRule
+    plural: vyosclusterfwrules
+  versions:
+  - name: v1alpha1
+    served: true
+    referenceable: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        required:
+        - spec
+        properties:
+          spec:
+            type: object
+            required:
+            - rules
+            - vyosNodes
+            properties:
+              clusterName:
+                type: string
+              vyosNodes:
+                type: object
+                required:
+                - primarynode
+                - secondarynode
+                properties:
+                  primarynode:
+                    required:
+                    - name
+                    - url
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      url:
+                        type: string
+                  secondarynode:
+                    type: object
+                    required:
+                    - name
+                    - url
+                    properties:
+                      name:
+                        type: string
+                      url:
+                        type: string
+              rules:
+                items:
+                  properties:
+                    action:
+                      type: string
+                    destination:
+                      properties:
+                        address:
+                          type: string
+                        port:
+                          format: int32
+                          type: integer
+                      required:
+                      - address
+                      type: object
+                    protocol:
+                      type: string
+                    ruleNumber:
+                      format: int32
+                      type: integer
+                  required:
+                  - action
+                  - destination
+                  - ruleNumber
+                  type: object
+                type: array
