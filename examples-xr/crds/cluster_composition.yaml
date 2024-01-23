@@ -7,7 +7,8 @@ spec:
     apiVersion: example.org/v1alpha1
     kind: VyOSClusterFwRule
   resources:
-  - name: ruleset-comp
+  
+  - name: ruleset-vyos-primary
     base:
       apiVersion: firewall.vyos.crossplane.io/v1alpha1
       kind: Ruleset
@@ -21,4 +22,20 @@ spec:
       toFieldPath: "spec.forProvider.rules"
     - type: FromCompositeFieldPath
       fromFieldPath: "spec.vyosNodes.primarynode.url"
+      toFieldPath: "spec.forProvider.vyosUrl"
+
+  - name: ruleset-comp-vyos-secondary
+    base:
+      apiVersion: firewall.vyos.crossplane.io/v1alpha1
+      kind: Ruleset
+      spec:
+        forProvider:
+          rules: []
+          vyosUrl: ""
+    patches:
+    - type: FromCompositeFieldPath
+      fromFieldPath: "spec.rules"
+      toFieldPath: "spec.forProvider.rules"
+    - type: FromCompositeFieldPath
+      fromFieldPath: "spec.vyosNodes.secondarynode.url"
       toFieldPath: "spec.forProvider.vyosUrl"

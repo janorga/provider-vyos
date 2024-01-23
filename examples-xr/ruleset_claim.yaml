@@ -1,7 +1,7 @@
 apiVersion: example.org/v1alpha1
 kind: VyOSClusterFwRule
 metadata:
-  name: "fw-ruleset-claim"
+  name: "fw-ruleset-myruleset"
 spec:
   clusterName: "cluster01"
   vyosNodes:
