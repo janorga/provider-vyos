@@ -7,7 +7,7 @@ spec:
     apiVersion: example.org/v1alpha1
     kind: VyOSClusterFwRule
   resources:
-  
+
   - name: ruleset-vyos-primary
     base:
       apiVersion: firewall.vyos.crossplane.io/v1alpha1
@@ -23,6 +23,15 @@ spec:
     - type: FromCompositeFieldPath
       fromFieldPath: "spec.vyosNodes.primarynode.url"
       toFieldPath: "spec.forProvider.vyosUrl"
+    - type: CombineFromComposite
+      combine:
+        variables:
+          - fromFieldPath: metadata.name
+          - fromFieldPath: spec.vyosNodes.primarynode.name
+        strategy: string
+        string:
+          fmt: "%s-%s"
+      toFieldPath: metadata.name
 
   - name: ruleset-comp-vyos-secondary
     base:
@@ -39,3 +48,12 @@ spec:
     - type: FromCompositeFieldPath
       fromFieldPath: "spec.vyosNodes.secondarynode.url"
       toFieldPath: "spec.forProvider.vyosUrl"
+    - type: CombineFromComposite
+      combine:
+        variables:
+          - fromFieldPath: metadata.name
+          - fromFieldPath: spec.vyosNodes.secondarynode.name
+        strategy: string
+        string:
+          fmt: "%s-%s"
+      toFieldPath: metadata.name
