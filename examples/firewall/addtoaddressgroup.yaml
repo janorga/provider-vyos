@@ -1,0 +1,18 @@
+apiVersion: firewall.vyos.crossplane.io/v1alpha1
+kind: AddToAddressGroup
+metadata:
+  name: addtoaddressgroup-example
+spec:
+  forProvider:
+    vyosUrl: "https://10.7.191.156"
+    ipAddress: 7.7.7.25
+    addressGroups:
+    - G-21-TCP
+    - G-22-TCP
+    - G-80-TCP
+    - G-443-TCP
+    - G-3389-TCP
+    - CLUSTER_ADDRESSES
+
+  providerConfigRef:
+    name: default
