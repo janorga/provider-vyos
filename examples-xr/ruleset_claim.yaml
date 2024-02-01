@@ -29,4 +29,4 @@ spec:
     protocol: "tcp"
     destination:
       address: "5.5.5.7"
-      port: 80
+      port: 443
