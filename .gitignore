@@ -9,4 +9,6 @@ cover.out
 .DS_Store
 *xpkg
 
+provider
+
 secret.yaml
