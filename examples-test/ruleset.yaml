@@ -6,13 +6,13 @@ spec:
   forProvider:
     vyosUrl: "https://10.7.191.156"
     rules:
-    - ruleNumber: 3505
+    - ruleNumber: 3510
       protocol: "tcp"
       action: "accept"
       destination:
         address: "5.5.5.5"
         port: 80
-    - ruleNumber: 3506
+    - ruleNumber: 3508
       protocol: "tcp"
       action: "accept"
       destination:

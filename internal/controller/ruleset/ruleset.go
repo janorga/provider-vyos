@@ -132,7 +132,7 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 		return nil, errors.Wrap(err, errNewClient)
 	}
 
-	return &external{service: svc}, nil
+	return &external{service: svc, kube: c.kube}, nil
 }
 
 // An ExternalClient observes, then either creates, updates, or deletes an
@@ -141,6 +141,7 @@ type external struct {
 	// A 'client' used to connect to the external resource API. In practice this
 	// would be something like an AWS SDK client.
 	service *VyOSService
+	kube    client.Client
 }
 
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
@@ -148,7 +149,6 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	if !ok {
 		return managed.ExternalObservation{}, errors.New(errNotRuleset)
 	}
-
 	// These fmt statements should be removed in the real implementation.
 	fmt.Printf("Observing: %+v", cr)
 	path := "firewall name LAN-INBOUND rule"
@@ -231,6 +231,9 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		}, nil
 	}
 
+	//*** Put applied rules on State
+	putAppliedRulesOnState(cr)
+
 	cr.Status.SetConditions(xpv1.Available())
 	return managed.ExternalObservation{
 		// Return false when the external resource does not exist. This lets
@@ -249,15 +252,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	}, nil
 }
 
-func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {
-	cr, ok := mg.(*v1alpha1.Ruleset)
-	if !ok {
-		return managed.ExternalCreation{}, errors.New(errNotRuleset)
-	}
-
-	fmt.Printf("Creating: %+v", cr)
-	cr.Status.SetConditions(xpv1.Creating())
-
+func createUpdate(ctx context.Context, cr *v1alpha1.Ruleset, vyosclient *vyosclient.Client) {
 	rules := cr.Spec.ForProvider.Rules
 
 	var path string
@@ -275,7 +270,7 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 		valueMap["rule "+ruleNumber_string+" destination port"] = fmt.Sprint(rule.Destination.Port)
 	}
 
-	err := c.service.pCLI.Config.Set(ctx, path, valueMap)
+	err := vyosclient.Config.Set(ctx, path, valueMap)
 
 	if err != nil {
 		fmt.Printf("Cannot create: %+v", cr)
@@ -283,6 +278,21 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 	} else {
 		fmt.Printf("Creating: %+v", cr)
 	}
+
+	//*** Put applied rules on State
+	putAppliedRulesOnState(cr)
+}
+
+func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {
+	cr, ok := mg.(*v1alpha1.Ruleset)
+	if !ok {
+		return managed.ExternalCreation{}, errors.New(errNotRuleset)
+	}
+
+	fmt.Printf("Creating: %+v", cr)
+	cr.Status.SetConditions(xpv1.Creating())
+
+	createUpdate(ctx, cr, c.service.pCLI)
 
 	return managed.ExternalCreation{
 		// Optionally return any details that may be required to connect to the
@@ -299,33 +309,38 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 
 	fmt.Printf("Updating: %+v", cr)
 
-	cr.Status.SetConditions(xpv1.Creating())
-
-	rules := cr.Spec.ForProvider.Rules
-
-	var path string
-	valueMap := make(map[string]string)
-
-	for _, rule := range rules {
-		path = "firewall name LAN-INBOUND"
-
-		ruleNumber_string := fmt.Sprint(rule.RuleNumber)
-
-		valueMap["rule"] = fmt.Sprint(rule.RuleNumber)
-		valueMap["rule "+ruleNumber_string+" action"] = rule.Action
-		valueMap["rule "+ruleNumber_string+" protocol"] = rule.Protocol
-		valueMap["rule "+ruleNumber_string+" destination address"] = rule.Destination.Address
-		valueMap["rule "+ruleNumber_string+" destination port"] = fmt.Sprint(rule.Destination.Port)
+	//**************** Check if rule in Followed Rules is not in in Spec
+	followed_rules := cr.Status.AtProvider.State.FollowedRules
+	rules_not_found := make([]int32, 0)
+	// Check if rule in last applied is not in Spec
+	for _, f_rule := range followed_rules {
+		found := false
+		for _, rule_spec := range cr.Spec.ForProvider.Rules {
+			if f_rule == rule_spec.RuleNumber {
+				found = true
+				break
+			}
+		}
+		if !found {
+			rules_not_found = append(rules_not_found, f_rule)
+		}
 	}
-
-	err := c.service.pCLI.Config.Set(ctx, path, valueMap)
-
+	//*** Delete not found rules on last applied configuration
+	path := "firewall name LAN-INBOUND"
+	delete_rules := make(map[string]string)
+	for _, rule_number := range rules_not_found {
+		delete_rules["rule "+fmt.Sprint(rule_number)] = ""
+	}
+	err := c.service.pCLI.Config.Delete(ctx, path, delete_rules)
 	if err != nil {
-		fmt.Printf("Cannot create: %+v", cr)
-		fmt.Printf("Error💥💥💥💥💥💥💥💥💥💥💥💥💥💥💥💥: %+v", err)
+		fmt.Printf("Cannot Delete: %+v", cr)
+		fmt.Printf("Error: %+v", err)
 	} else {
-		fmt.Printf("Creating: %+v", cr)
+		fmt.Printf("Deleted: %+v", cr)
 	}
+	//*** Re-Create rules
+	//TODO: Re-Create only modified rules
+	createUpdate(ctx, cr, c.service.pCLI)
 
 	return managed.ExternalUpdate{
 		// Optionally return any details that may be required to connect to the
@@ -343,15 +358,11 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
 	fmt.Printf("Deleting: %+v", cr)
 
 	cr.Status.SetConditions(xpv1.Deleting())
-
 	rules := cr.Spec.ForProvider.Rules
-
-	var path string
-
+	path := "firewall name LAN-INBOUND"
 	delete_rules := make(map[string]string)
 
 	for _, rule := range rules {
-		path = "firewall name LAN-INBOUND"
 		delete_rules["rule "+fmt.Sprint(rule.RuleNumber)] = ""
 	}
 
@@ -365,4 +376,13 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
 	}
 
 	return nil
+}
+
+func putAppliedRulesOnState(cr *v1alpha1.Ruleset) {
+	//*** Put applied rules on State
+	applied_rules := make([]int32, 0)
+	for _, rule := range cr.Spec.ForProvider.Rules {
+		applied_rules = append(applied_rules, rule.RuleNumber)
+	}
+	cr.Status.AtProvider.State.FollowedRules = applied_rules
 }

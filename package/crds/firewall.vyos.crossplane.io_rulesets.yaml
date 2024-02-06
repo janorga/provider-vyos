@@ -303,7 +303,13 @@ spec:
                 description: RulesetObservation are the observable fields of a Ruleset.
                 properties:
                   state:
-                    type: string
+                    properties:
+                      followedRules:
+                        items:
+                          format: int32
+                          type: integer
+                        type: array
+                    type: object
                 required:
                 - state
                 type: object
