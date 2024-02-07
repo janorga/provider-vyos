@@ -43,14 +43,14 @@ type RulesetParameters struct {
 	Rules   []RuleParameters `json:"rules"`
 }
 
-type StateParameters struct {
+type RulesetStateParameters struct {
 	//+optional
 	FollowedRules []int32 `json:"followedRules,omitempty"`
 }
 
 // RulesetObservation are the observable fields of a Ruleset.
 type RulesetObservation struct {
-	State StateParameters `json:"state"`
+	State RulesetStateParameters `json:"state"`
 }
 
 // A RulesetSpec defines the desired state of a Ruleset.
