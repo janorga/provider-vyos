@@ -232,7 +232,9 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	}
 
 	//*** Put applied rules on State
-	putAppliedRulesOnState(cr)
+	if len(cr.Status.AtProvider.State.FollowedRules) == 0 {
+		putFollowedRulesOnState(cr)
+	}
 
 	cr.Status.SetConditions(xpv1.Available())
 	return managed.ExternalObservation{
@@ -280,7 +282,7 @@ func createUpdate(ctx context.Context, cr *v1alpha1.Ruleset, vyosclient *vyoscli
 	}
 
 	//*** Put applied rules on State
-	putAppliedRulesOnState(cr)
+	putFollowedRulesOnState(cr)
 }
 
 func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {
@@ -378,7 +380,7 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
 	return nil
 }
 
-func putAppliedRulesOnState(cr *v1alpha1.Ruleset) {
+func putFollowedRulesOnState(cr *v1alpha1.Ruleset) {
 	//*** Put applied rules on State
 	applied_rules := make([]int32, 0)
 	for _, rule := range cr.Spec.ForProvider.Rules {
