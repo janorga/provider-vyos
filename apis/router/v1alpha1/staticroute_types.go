@@ -36,9 +36,13 @@ type StaticRouteParameters struct {
 	Route   RouteParameters `json:"route"`
 }
 
+type StateParameters struct {
+	FollowedRoute string `json:"followedRoute"`
+}
+
 // StaticRouteObservation are the observable fields of a StaticRoute.
 type StaticRouteObservation struct {
-	State string `json:"state"`
+	State StateParameters `json:"state"`
 }
 
 // A StaticRouteSpec defines the desired state of a StaticRoute.

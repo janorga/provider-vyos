@@ -289,7 +289,12 @@ spec:
                   StaticRoute.
                 properties:
                   state:
-                    type: string
+                    properties:
+                      followedRoute:
+                        type: string
+                    required:
+                    - followedRoute
+                    type: object
                 required:
                 - state
                 type: object

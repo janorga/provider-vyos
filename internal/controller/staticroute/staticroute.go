@@ -147,6 +147,14 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		return managed.ExternalObservation{}, errors.New(errNotStaticRoute)
 	}
 
+	if len(cr.Status.AtProvider.State.FollowedRoute) >= 0 &&
+		(cr.Status.AtProvider.State.FollowedRoute != cr.Spec.ForProvider.Route.To) {
+		return managed.ExternalObservation{
+			ResourceExists:   true,
+			ResourceUpToDate: false,
+		}, nil
+	}
+
 	// These fmt statements should be removed in the real implementation.
 	fmt.Printf("Observing: %+v", cr)
 	path := "protocols static interface-route " + cr.Spec.ForProvider.Route.To + " next-hop-interface"
@@ -178,6 +186,10 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 			ResourceExists:   true,
 			ResourceUpToDate: false,
 		}, nil
+	}
+
+	if len(cr.Status.AtProvider.State.FollowedRoute) == 0 {
+		putFollowedRouteOnState(cr)
 	}
 
 	cr.Status.SetConditions(xpv1.Available())
@@ -222,6 +234,8 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 		fmt.Printf("Creating: %+v", cr)
 	}
 
+	putFollowedRouteOnState(cr)
+
 	return managed.ExternalCreation{
 		// Optionally return any details that may be required to connect to the
 		// external resource. These will be stored as the connection secret.
@@ -235,8 +249,23 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 		return managed.ExternalUpdate{}, errors.New(errNotStaticRoute)
 	}
 
+	// Delete route first if spec "To" is different than followed route
+	if cr.Spec.ForProvider.Route.To != cr.Status.AtProvider.State.FollowedRoute {
+		path := "protocols static interface-route " + cr.Status.AtProvider.State.FollowedRoute
+
+		err := c.service.pCLI.Config.Delete(ctx, path, "")
+		if err != nil {
+			fmt.Printf("Cannot Delete: %+v", cr)
+			fmt.Printf("Error: %+v", err)
+		} else {
+			fmt.Printf("Deleted: %+v", cr)
+		}
+	}
+
 	fmt.Printf("Creating/Updating: %+v", cr)
 	mg_eu, err := c.Create(ctx, mg)
+
+	// FollowedRoute updated at Create function
 
 	return managed.ExternalUpdate{ConnectionDetails: managed.ExternalUpdate(mg_eu).ConnectionDetails}, err
 }
@@ -261,4 +290,8 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
 	}
 
 	return nil
+}
+
+func putFollowedRouteOnState(cr *v1alpha1.StaticRoute) {
+	cr.Status.AtProvider.State.FollowedRoute = cr.Spec.ForProvider.Route.To
 }
