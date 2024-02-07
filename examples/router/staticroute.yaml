@@ -1,0 +1,13 @@
+apiVersion: router.vyos.crossplane.io/v1alpha1
+kind: StaticRoute
+metadata:
+  name: staticroute-example
+spec:
+  forProvider:
+    vyosUrl: "https://10.7.191.156"
+    route:
+      to: "7.7.7.0/24"
+      next-hop-interface: eth3
+
+  providerConfigRef:
+    name: default

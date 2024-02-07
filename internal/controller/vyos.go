@@ -20,9 +20,11 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/controller"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/janorga/provider-vyos/internal/controller/addtoaddressgroup"
 	"github.com/janorga/provider-vyos/internal/controller/config"
 	"github.com/janorga/provider-vyos/internal/controller/firewall"
 	"github.com/janorga/provider-vyos/internal/controller/ruleset"
+	"github.com/janorga/provider-vyos/internal/controller/staticroute"
 )
 
 // Setup creates all VyOS controllers with the supplied logger and adds them to
@@ -32,6 +34,8 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 		config.Setup,
 		firewall.Setup,
 		ruleset.Setup,
+		addtoaddressgroup.Setup,
+		staticroute.Setup,
 	} {
 		if err := setup(mgr, o); err != nil {
 			return err
