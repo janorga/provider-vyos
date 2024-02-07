@@ -151,6 +151,14 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	}
 	// These fmt statements should be removed in the real implementation.
 	fmt.Printf("Observing: %+v", cr)
+
+	if len(cr.Status.AtProvider.State.FollowedRules) > 0 && checkNewSpec(cr) {
+		return managed.ExternalObservation{
+			ResourceExists:   true,
+			ResourceUpToDate: false,
+		}, nil
+	}
+
 	path := "firewall name LAN-INBOUND rule"
 
 	res, err := c.service.pCLI.Config.Show(ctx, path)
@@ -387,4 +395,16 @@ func putFollowedRulesOnState(cr *v1alpha1.Ruleset) {
 		applied_rules = append(applied_rules, rule.RuleNumber)
 	}
 	cr.Status.AtProvider.State.FollowedRules = applied_rules
+}
+
+func checkNewSpec(cr *v1alpha1.Ruleset) bool {
+	for _, rule_spec := range cr.Spec.ForProvider.Rules {
+		rule_spec_rulenumber := rule_spec.RuleNumber
+		for _, rule_followed := range cr.Status.AtProvider.State.FollowedRules {
+			if rule_spec_rulenumber == rule_followed {
+				return false
+			}
+		}
+	}
+	return true
 }
