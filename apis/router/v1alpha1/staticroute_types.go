@@ -37,6 +37,7 @@ type StaticRouteParameters struct {
 }
 
 type StateParameters struct {
+	//+optional
 	FollowedRoute string `json:"followedRoute"`
 }
 

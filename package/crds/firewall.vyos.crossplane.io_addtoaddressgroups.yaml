@@ -287,7 +287,14 @@ spec:
                   of a AddToAddressGroup.
                 properties:
                   state:
-                    type: string
+                    properties:
+                      addressGroups:
+                        items:
+                          type: string
+                        type: array
+                      ipAddress:
+                        type: string
+                    type: object
                 required:
                 - state
                 type: object

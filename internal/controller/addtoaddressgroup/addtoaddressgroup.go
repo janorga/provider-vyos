@@ -153,6 +153,13 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	// These fmt statements should be removed in the real implementation.
 	fmt.Printf("Observing: %+v", cr)
 
+	if len(cr.Status.AtProvider.State.FollowedIPAddress) > 0 && checkNewSpec(cr) {
+		return managed.ExternalObservation{
+			ResourceExists:   true,
+			ResourceUpToDate: false,
+		}, nil
+	}
+
 	path := "firewall group address-group"
 	res, err := c.service.pCLI.Config.Show(ctx, path)
 	if err != nil {
@@ -163,10 +170,17 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		}, errors.New("errInExternalAPICall")
 	}
 
+	//*** Put casting response through marshall/unmarshall JSON to deal with nested type coversions
 	jsonStr, err := json.Marshal(res)
+	if err != nil {
+		cr.Status.SetConditions(xpv1.Unavailable())
+		return managed.ExternalObservation{
+			ResourceExists:   false,
+			ResourceUpToDate: false,
+		}, errors.New("errInExternalAPICall")
+	}
 	var resMap map[string]map[string]any
 	err = json.Unmarshal([]byte(jsonStr), &resMap)
-
 	if err != nil {
 		cr.Status.SetConditions(xpv1.Unavailable())
 		return managed.ExternalObservation{
@@ -175,7 +189,6 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		}, errors.New("errInExternalAPICall")
 	}
 
-	// resflat, err := flatten.Flatten(resMap, "", flatten.DotStyle)
 	if err != nil {
 		cr.Status.SetConditions(xpv1.Unavailable())
 		return managed.ExternalObservation{
@@ -225,6 +238,11 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		}, nil
 	}
 
+	//*** Put followed address groups on State
+	if len(cr.Status.AtProvider.State.FollowedIPAddress) == 0 {
+		putFollowedAddressGroupsOnState(cr)
+	}
+
 	cr.Status.SetConditions(xpv1.Available())
 	return managed.ExternalObservation{
 		// Return false when the external resource does not exist. This lets
@@ -266,6 +284,9 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 		fmt.Printf("Creating: %+v", cr)
 	}
 
+	//*** Put followed address groups on State
+	putFollowedAddressGroupsOnState(cr)
+
 	return managed.ExternalCreation{
 		// Optionally return any details that may be required to connect to the
 		// external resource. These will be stored as the connection secret.
@@ -278,9 +299,48 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 	if !ok {
 		return managed.ExternalUpdate{}, errors.New(errNotAddToAddressGroup)
 	}
+	spec_address_groups := make([]string, len(cr.Spec.ForProvider.AddressGroups))
+	copy(spec_address_groups, cr.Spec.ForProvider.AddressGroups)
 
+	//*** If IP is updated, mark spec address groups as empty to delete all
+	if cr.Status.AtProvider.State.FollowedIPAddress != cr.Spec.ForProvider.IPAddress {
+		spec_address_groups = []string{""}
+	}
+	//*** Find groups in followed address groups that are not in spec address groups
+	address_group_todelete := make([]string, 0)
+	for _, followed_address_group := range cr.Status.AtProvider.State.FollowedAddressGroups {
+		found := false
+		for _, address_group := range spec_address_groups {
+			if followed_address_group == address_group {
+				found = true
+				break
+			}
+		}
+		if !found {
+			address_group_todelete = append(address_group_todelete, followed_address_group)
+		}
+	}
+	//*** Delete not found rules on last applied configuration
+	path := "firewall group address-group"
+
+	valueMap := make(map[string]string)
+	for _, group := range address_group_todelete {
+		valueMap[group+" address"] = cr.Status.AtProvider.State.FollowedIPAddress
+	}
+	err := c.service.pCLI.Config.Delete(ctx, path, valueMap)
+	if err != nil {
+		fmt.Printf("Cannot Delete: %+v", cr)
+		fmt.Printf("Error: %+v", err)
+	} else {
+		fmt.Printf("Deleted: %+v", cr)
+	}
+
+	//*** Create/Update rules
 	fmt.Printf("Creating/Updating: %+v", cr)
 	mg_eu, err := c.Create(ctx, mg)
+
+	//*** Put followed address groups on State
+	putFollowedAddressGroupsOnState(cr)
 
 	return managed.ExternalUpdate{ConnectionDetails: managed.ExternalUpdate(mg_eu).ConnectionDetails}, err
 }
@@ -307,4 +367,24 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
 	}
 
 	return nil
+}
+
+func putFollowedAddressGroupsOnState(cr *v1alpha1.AddToAddressGroup) {
+	//*** Put applied rules on State
+	cr.Status.AtProvider.State.FollowedAddressGroups = cr.Spec.ForProvider.AddressGroups
+	cr.Status.AtProvider.State.FollowedIPAddress = cr.Spec.ForProvider.IPAddress
+}
+
+func checkNewSpec(cr *v1alpha1.AddToAddressGroup) bool {
+	if cr.Status.AtProvider.State.FollowedIPAddress != cr.Spec.ForProvider.IPAddress {
+		return true
+	}
+	for _, address_group := range cr.Spec.ForProvider.AddressGroups {
+		for _, address_group_followed := range cr.Status.AtProvider.State.FollowedAddressGroups {
+			if address_group == address_group_followed {
+				return false
+			}
+		}
+	}
+	return true
 }
