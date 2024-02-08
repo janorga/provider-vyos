@@ -1,0 +1,59 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: vyos-composition-staticroute
+spec:
+  compositeTypeRef:
+    apiVersion: example.org/v1alpha1
+    kind: VyOSClusterStaticRoute
+  resources:
+
+  - name: staticroute-vyos-primary
+    base:
+      apiVersion: router.vyos.crossplane.io/v1alpha1
+      kind: StaticRoute
+      spec:
+        forProvider:
+          route: {}
+          vyosUrl: ""
+    patches:
+    - type: FromCompositeFieldPath
+      fromFieldPath: "spec.route"
+      toFieldPath: "spec.forProvider.route"
+    - type: FromCompositeFieldPath
+      fromFieldPath: "spec.vyosNodes.primarynode.url"
+      toFieldPath: "spec.forProvider.vyosUrl"
+    - type: CombineFromComposite
+      combine:
+        variables:
+          - fromFieldPath: metadata.name
+          - fromFieldPath: spec.vyosNodes.primarynode.name
+        strategy: string
+        string:
+          fmt: "%s-%s-staticroute"
+      toFieldPath: metadata.name
+
+  - name: staticroute-vyos-secondary
+    base:
+      apiVersion: router.vyos.crossplane.io/v1alpha1
+      kind: StaticRoute
+      spec:
+        forProvider:
+          route: {}
+          vyosUrl: ""
+    patches:
+    - type: FromCompositeFieldPath
+      fromFieldPath: "spec.route"
+      toFieldPath: "spec.forProvider.route"
+    - type: FromCompositeFieldPath
+      fromFieldPath: "spec.vyosNodes.secondarynode.url"
+      toFieldPath: "spec.forProvider.vyosUrl"
+    - type: CombineFromComposite
+      combine:
+        variables:
+          - fromFieldPath: metadata.name
+          - fromFieldPath: spec.vyosNodes.secondarynode.name
+        strategy: string
+        string:
+          fmt: "%s-%s-staticroute"
+      toFieldPath: metadata.name

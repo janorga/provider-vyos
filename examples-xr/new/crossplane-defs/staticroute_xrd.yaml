@@ -1,12 +1,12 @@
 apiVersion: apiextensions.crossplane.io/v1
 kind: CompositeResourceDefinition
 metadata: 
-  name: vyosclusterfirewalls.example.org
+  name: vyosclusterstaticroutes.example.org
 spec:
   group: example.org
   names:
-    kind: VyOSClusterFirewall
-    plural: vyosclusterfirewalls
+    kind: VyOSClusterStaticRoute
+    plural: vyosclusterstaticroutes
   versions:
   - name: v1alpha1
     served: true
@@ -20,9 +20,8 @@ spec:
           spec:
             type: object
             required:
-            - rules
+            - route
             - vyosNodes
-            - addToAddressGroup
             properties:
               clusterName:
                 type: string
@@ -52,45 +51,16 @@ spec:
                         type: string
                       url:
                         type: string
-              rules:
-                items:
-                  properties:
-                    action:
-                      type: string
-                    destination:
-                      properties:
-                        address:
-                          type: string
-                        port:
-                          format: int32
-                          type: integer
-                      required:
-                      - address
-                      type: object
-                    protocol:
-                      type: string
-                    ruleNumber:
-                      format: int32
-                      type: integer
-                  required:
-                  - action
-                  - destination
-                  - ruleNumber
-                  type: object
-                type: array
-
-              addToAddressGroup:
+              route:
                 type: object
                 required:
-                  - ipAddress
-                  - addressGroups
+                  - to
+                  - next-hop-interface
                 properties:
-                  ipAddress:
+                  to:
                     type: string
-                  addressGroups:
-                    type: array
-                    items:
-                      type: string
+                  next-hop-interface:
+                    type: string
 
 
 

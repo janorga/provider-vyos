@@ -1,7 +1,7 @@
 apiVersion: apiextensions.crossplane.io/v1
 kind: Composition
 metadata:
-  name: vyos-composition-rules
+  name: vyos-composition-firewall
 spec:
   compositeTypeRef:
     apiVersion: example.org/v1alpha1
@@ -33,7 +33,7 @@ spec:
           fmt: "%s-%s-rules"
       toFieldPath: metadata.name
 
-  - name: ruleset-comp-vyos-secondary
+  - name: ruleset-vyos-secondary
     base:
       apiVersion: firewall.vyos.crossplane.io/v1alpha1
       kind: Ruleset
