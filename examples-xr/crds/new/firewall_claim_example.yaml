@@ -1,7 +1,7 @@
 apiVersion: example.org/v1alpha1
-kind: VyOSClusterFwRule
+kind: VyOSClusterFirewall
 metadata:
-  name: "clientA-firewall"
+  name: "customer-a-firewall"
 spec:
   clusterName: "cluster01"
   vyosNodes:

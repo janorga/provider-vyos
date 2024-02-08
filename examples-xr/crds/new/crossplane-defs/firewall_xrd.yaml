@@ -1,7 +1,7 @@
 apiVersion: apiextensions.crossplane.io/v1
 kind: CompositeResourceDefinition
 metadata: 
-  name: vyosclusterfwrules.example.org
+  name: vyosclusterfirewalls.example.org
 spec:
   group: example.org
   names:

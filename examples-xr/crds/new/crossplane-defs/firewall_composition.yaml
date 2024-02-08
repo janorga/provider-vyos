@@ -30,7 +30,7 @@ spec:
           - fromFieldPath: spec.vyosNodes.primarynode.name
         strategy: string
         string:
-          fmt: "%s-%s"
+          fmt: "%s-%s-rules"
       toFieldPath: metadata.name
 
   - name: ruleset-comp-vyos-secondary
@@ -55,7 +55,7 @@ spec:
           - fromFieldPath: spec.vyosNodes.secondarynode.name
         strategy: string
         string:
-          fmt: "%s-%s"
+          fmt: "%s-%s-rules"
       toFieldPath: metadata.name
 
 
@@ -85,7 +85,7 @@ spec:
           - fromFieldPath: spec.vyosNodes.primarynode.name
         strategy: string
         string:
-          fmt: "%s-%s"
+          fmt: "%s-%s-addtoaddressgroup"
       toFieldPath: metadata.name
 
   - name: addtoaddressgroup-vyos-secondary
@@ -114,7 +114,7 @@ spec:
           - fromFieldPath: spec.vyosNodes.secondarynode.name
         strategy: string
         string:
-          fmt: "%s-%s"
+          fmt: "%s-%s-addtoaddressgroup"
       toFieldPath: metadata.name
 
   
