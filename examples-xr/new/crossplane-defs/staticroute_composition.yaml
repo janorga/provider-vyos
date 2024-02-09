@@ -12,11 +12,17 @@ spec:
     base:
       apiVersion: router.vyos.crossplane.io/v1alpha1
       kind: StaticRoute
+      metadata:
+        labels:
+          customer: ""
       spec:
         forProvider:
           route: {}
           vyosUrl: ""
     patches:
+    - type: FromCompositeFieldPath
+      fromFieldPath: "metadata.labels.customer"
+      toFieldPath: "metadata.labels.customer"
     - type: FromCompositeFieldPath
       fromFieldPath: "spec.route"
       toFieldPath: "spec.forProvider.route"
@@ -37,11 +43,17 @@ spec:
     base:
       apiVersion: router.vyos.crossplane.io/v1alpha1
       kind: StaticRoute
+      metadata:
+        labels:
+          customer: ""
       spec:
         forProvider:
           route: {}
           vyosUrl: ""
     patches:
+    - type: FromCompositeFieldPath
+      fromFieldPath: "metadata.labels.customer"
+      toFieldPath: "metadata.labels.customer"
     - type: FromCompositeFieldPath
       fromFieldPath: "spec.route"
       toFieldPath: "spec.forProvider.route"

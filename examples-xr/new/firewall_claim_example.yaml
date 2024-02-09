@@ -2,6 +2,8 @@ apiVersion: example.org/v1alpha1
 kind: VyOSClusterFirewall
 metadata:
   name: "customer-a-firewall"
+  labels:
+    customer: "customer-a"
 spec:
   clusterName: "cluster01"
   vyosNodes:

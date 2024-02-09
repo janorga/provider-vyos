@@ -2,6 +2,8 @@ apiVersion: example.org/v1alpha1
 kind: VyOSClusterStaticRoute
 metadata:
   name: "customer-a-staticroute"
+  labels:
+    customer: "customer-a"
 spec:
   clusterName: "cluster01"
   vyosNodes:

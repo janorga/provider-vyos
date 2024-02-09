@@ -12,11 +12,17 @@ spec:
     base:
       apiVersion: firewall.vyos.crossplane.io/v1alpha1
       kind: Ruleset
+      metadata:
+        labels:
+          customer: ""
       spec:
         forProvider:
           rules: []
           vyosUrl: ""
     patches:
+    - type: FromCompositeFieldPath
+      fromFieldPath: "metadata.labels.customer"
+      toFieldPath: "metadata.labels.customer"
     - type: FromCompositeFieldPath
       fromFieldPath: "spec.rules"
       toFieldPath: "spec.forProvider.rules"
@@ -37,11 +43,17 @@ spec:
     base:
       apiVersion: firewall.vyos.crossplane.io/v1alpha1
       kind: Ruleset
+      metadata:
+        labels:
+          customer: ""
       spec:
         forProvider:
           rules: []
           vyosUrl: ""
     patches:
+    - type: FromCompositeFieldPath
+      fromFieldPath: "metadata.labels.customer"
+      toFieldPath: "metadata.labels.customer"
     - type: FromCompositeFieldPath
       fromFieldPath: "spec.rules"
       toFieldPath: "spec.forProvider.rules"
@@ -63,12 +75,18 @@ spec:
     base:
       apiVersion: firewall.vyos.crossplane.io/v1alpha1
       kind: AddToAddressGroup
+      metadata:
+        labels:
+          customer: ""
       spec:
         forProvider:
           vyosUrl: ""
           ipAddress: ""
           addressGroups: []
     patches:
+    - type: FromCompositeFieldPath
+      fromFieldPath: "metadata.labels.customer"
+      toFieldPath: "metadata.labels.customer"
     - type: FromCompositeFieldPath
       fromFieldPath: "spec.vyosNodes.primarynode.url"
       toFieldPath: "spec.forProvider.vyosUrl"
@@ -92,12 +110,18 @@ spec:
     base:
       apiVersion: firewall.vyos.crossplane.io/v1alpha1
       kind: AddToAddressGroup
+      metadata:
+        labels:
+          customer: ""
       spec:
         forProvider:
           vyosUrl: ""
           ipAddress: ""
           addressGroups: []
     patches:
+    - type: FromCompositeFieldPath
+      fromFieldPath: "metadata.labels.customer"
+      toFieldPath: "metadata.labels.customer"
     - type: FromCompositeFieldPath
       fromFieldPath: "spec.vyosNodes.secondarynode.url"
       toFieldPath: "spec.forProvider.vyosUrl"
