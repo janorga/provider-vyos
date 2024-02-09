@@ -288,11 +288,11 @@ spec:
                 properties:
                   state:
                     properties:
-                      addressGroups:
+                      followedAddressGroups:
                         items:
                           type: string
                         type: array
-                      ipAddress:
+                      followedIpAddress:
                         type: string
                     type: object
                 required:

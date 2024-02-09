@@ -34,10 +34,10 @@ type AddToAddressGroupParameters struct {
 
 type AddToAddressGroupStateParameters struct {
 	//+optional
-	FollowedAddressGroups []string `json:"addressGroups"`
+	FollowedAddressGroups []string `json:"followedAddressGroups"`
 
 	//+optional
-	FollowedIPAddress string `json:"ipAddress"`
+	FollowedIPAddress string `json:"followedIpAddress"`
 }
 
 // AddToAddressGroupObservation are the observable fields of a AddToAddressGroup.
