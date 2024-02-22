@@ -22,7 +22,6 @@ import (
 
 	"github.com/janorga/provider-vyos/internal/controller/addtoaddressgroup"
 	"github.com/janorga/provider-vyos/internal/controller/config"
-	"github.com/janorga/provider-vyos/internal/controller/firewall"
 	"github.com/janorga/provider-vyos/internal/controller/ruleset"
 	"github.com/janorga/provider-vyos/internal/controller/staticroute"
 )
@@ -32,7 +31,6 @@ import (
 func Setup(mgr ctrl.Manager, o controller.Options) error {
 	for _, setup := range []func(ctrl.Manager, controller.Options) error{
 		config.Setup,
-		firewall.Setup,
 		ruleset.Setup,
 		addtoaddressgroup.Setup,
 		staticroute.Setup,

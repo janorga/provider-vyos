@@ -50,14 +50,21 @@ const (
 
 // A VyOSService
 type VyOSService struct {
-	pCLI *vyosclient.Client
+	apiKey  string
+	url     string
+	timeout int32
+}
+
+func (vs *VyOSService) New() *vyosclient.Client {
+	return vyosclient.New(vs.url, vs.apiKey, vs.timeout)
 }
 
 var (
 	newVyOSService = func(vyosurl string, apiKey []byte) (*VyOSService, error) {
-		c := vyosclient.New(vyosurl, string(apiKey[:]))
 		return &VyOSService{
-			pCLI: c,
+			apiKey:  string(apiKey[:]),
+			url:     vyosurl,
+			timeout: 60,
 		}, nil
 	}
 )
@@ -147,7 +154,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		return managed.ExternalObservation{}, errors.New(errNotStaticRoute)
 	}
 
-	if len(cr.Status.AtProvider.State.FollowedRoute) >= 0 &&
+	if len(cr.Status.AtProvider.State.FollowedRoute) > 0 &&
 		(cr.Status.AtProvider.State.FollowedRoute != cr.Spec.ForProvider.Route.To) {
 		return managed.ExternalObservation{
 			ResourceExists:   true,
@@ -159,7 +166,8 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	fmt.Printf("Observing: %+v", cr)
 	path := "protocols static interface-route " + cr.Spec.ForProvider.Route.To + " next-hop-interface"
 
-	res, err := c.service.pCLI.Config.Show(ctx, path)
+	vyosclient := c.service.New()
+	res, err := vyosclient.Config.Show(ctx, path)
 	if err != nil {
 		cr.Status.SetConditions(xpv1.Unavailable())
 		return managed.ExternalObservation{
@@ -225,11 +233,15 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 
 	valueMap[cr.Spec.ForProvider.Route.NextHopInterface] = ""
 
-	err := c.service.pCLI.Config.Set(ctx, path, valueMap)
+	vyosclient := c.service.New()
+	err := vyosclient.Config.Set(ctx, path, valueMap)
 
 	if err != nil {
 		fmt.Printf("Cannot create: %+v", cr)
 		fmt.Printf("Error💥💥💥💥💥💥💥💥💥💥💥💥💥💥💥💥: %+v", err)
+		return managed.ExternalCreation{
+			ConnectionDetails: managed.ConnectionDetails{},
+		}, err
 	} else {
 		fmt.Printf("Creating: %+v", cr)
 	}
@@ -253,10 +265,14 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 	if cr.Spec.ForProvider.Route.To != cr.Status.AtProvider.State.FollowedRoute {
 		path := "protocols static interface-route " + cr.Status.AtProvider.State.FollowedRoute
 
-		err := c.service.pCLI.Config.Delete(ctx, path, "")
+		vyosclient := c.service.New()
+		err := vyosclient.Config.Delete(ctx, path, "")
 		if err != nil {
 			fmt.Printf("Cannot Delete: %+v", cr)
 			fmt.Printf("Error: %+v", err)
+			return managed.ExternalUpdate{
+				ConnectionDetails: managed.ConnectionDetails{},
+			}, err
 		} else {
 			fmt.Printf("Deleted: %+v", cr)
 		}
@@ -280,11 +296,13 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
 
 	path := "protocols static interface-route " + cr.Spec.ForProvider.Route.To
 
-	err := c.service.pCLI.Config.Delete(ctx, path, "")
+	vyosclient := c.service.New()
+	err := vyosclient.Config.Delete(ctx, path, "")
 
 	if err != nil {
 		fmt.Printf("Cannot Delete: %+v", cr)
 		fmt.Printf("Error: %+v", err)
+		return err
 	} else {
 		fmt.Printf("Deleted: %+v", cr)
 	}

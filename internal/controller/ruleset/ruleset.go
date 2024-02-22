@@ -52,14 +52,21 @@ const (
 
 // A VyOSService
 type VyOSService struct {
-	pCLI *vyosclient.Client
+	apiKey  string
+	url     string
+	timeout int32
+}
+
+func (vs *VyOSService) New() *vyosclient.Client {
+	return vyosclient.New(vs.url, vs.apiKey, vs.timeout)
 }
 
 var (
 	newVyOSService = func(vyosurl string, apiKey []byte) (*VyOSService, error) {
-		c := vyosclient.New(vyosurl, string(apiKey[:]))
 		return &VyOSService{
-			pCLI: c,
+			apiKey:  string(apiKey[:]),
+			url:     vyosurl,
+			timeout: 60,
 		}, nil
 	}
 )
@@ -159,9 +166,10 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		}, nil
 	}
 
-	path := "firewall name LAN-INBOUND rule"
+	path := "firewall name WAN-INBOUND rule"
 
-	res, err := c.service.pCLI.Config.Show(ctx, path)
+	vyosclient := c.service.New()
+	res, err := vyosclient.Config.Show(ctx, path)
 	if err != nil {
 		cr.Status.SetConditions(xpv1.Unavailable())
 		return managed.ExternalObservation{
@@ -262,14 +270,14 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	}, nil
 }
 
-func createUpdate(ctx context.Context, cr *v1alpha1.Ruleset, vyosclient *vyosclient.Client) {
+func createUpdate(ctx context.Context, cr *v1alpha1.Ruleset, vyosclient *vyosclient.Client) error {
 	rules := cr.Spec.ForProvider.Rules
 
 	var path string
 	valueMap := make(map[string]string)
 
 	for _, rule := range rules {
-		path = "firewall name LAN-INBOUND"
+		path = "firewall name WAN-INBOUND"
 
 		ruleNumber_string := fmt.Sprint(rule.RuleNumber)
 
@@ -291,6 +299,8 @@ func createUpdate(ctx context.Context, cr *v1alpha1.Ruleset, vyosclient *vyoscli
 
 	//*** Put applied rules on State
 	putFollowedRulesOnState(cr)
+
+	return err
 }
 
 func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {
@@ -302,13 +312,14 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 	fmt.Printf("Creating: %+v", cr)
 	cr.Status.SetConditions(xpv1.Creating())
 
-	createUpdate(ctx, cr, c.service.pCLI)
+	vyosclient := c.service.New()
+	err := createUpdate(ctx, cr, vyosclient)
 
 	return managed.ExternalCreation{
 		// Optionally return any details that may be required to connect to the
 		// external resource. These will be stored as the connection secret.
 		ConnectionDetails: managed.ConnectionDetails{},
-	}, nil
+	}, err
 }
 
 func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.ExternalUpdate, error) {
@@ -336,27 +347,32 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 		}
 	}
 	//*** Delete not found rules on last applied configuration
-	path := "firewall name LAN-INBOUND"
+	path := "firewall name WAN-INBOUND"
 	delete_rules := make(map[string]string)
 	for _, rule_number := range rules_not_found {
 		delete_rules["rule "+fmt.Sprint(rule_number)] = ""
 	}
-	err := c.service.pCLI.Config.Delete(ctx, path, delete_rules)
+	vyosclient := c.service.New()
+	err := vyosclient.Config.Delete(ctx, path, delete_rules)
 	if err != nil {
 		fmt.Printf("Cannot Delete: %+v", cr)
 		fmt.Printf("Error: %+v", err)
+		return managed.ExternalUpdate{
+			ConnectionDetails: managed.ConnectionDetails{},
+		}, err
 	} else {
 		fmt.Printf("Deleted: %+v", cr)
 	}
 	//*** Re-Create rules
 	//TODO: Re-Create only modified rules
-	createUpdate(ctx, cr, c.service.pCLI)
+	vyosclient = c.service.New()
+	err = createUpdate(ctx, cr, vyosclient)
 
 	return managed.ExternalUpdate{
 		// Optionally return any details that may be required to connect to the
 		// external resource. These will be stored as the connection secret.
 		ConnectionDetails: managed.ConnectionDetails{},
-	}, nil
+	}, err
 }
 
 func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
@@ -369,14 +385,15 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
 
 	cr.Status.SetConditions(xpv1.Deleting())
 	rules := cr.Spec.ForProvider.Rules
-	path := "firewall name LAN-INBOUND"
+	path := "firewall name WAN-INBOUND"
 	delete_rules := make(map[string]string)
 
 	for _, rule := range rules {
 		delete_rules["rule "+fmt.Sprint(rule.RuleNumber)] = ""
 	}
 
-	err := c.service.pCLI.Config.Delete(ctx, path, delete_rules)
+	vyosclient := c.service.New()
+	err := vyosclient.Config.Delete(ctx, path, delete_rules)
 
 	if err != nil {
 		fmt.Printf("Cannot Delete: %+v", cr)

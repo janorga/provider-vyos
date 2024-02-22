@@ -6,7 +6,7 @@ require (
 	github.com/crossplane/crossplane-runtime v1.14.0-rc.0.0.20230815060607-4f3cb3d9fd2b
 	github.com/crossplane/crossplane-tools v0.0.0-20230714144037-2684f4bc7638
 	github.com/google/go-cmp v0.5.9
-	github.com/janorga/vyos-client-go v0.0.0-20240115101602-42019dc8f782
+	github.com/janorga/vyos-client-go v0.0.0-20240212175818-6580c4de91cb
 	github.com/pkg/errors v0.9.1
 	golang.org/x/exp v0.0.0-20240119083558-1b970713d09a
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
