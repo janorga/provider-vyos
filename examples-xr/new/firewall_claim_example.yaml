@@ -9,10 +9,10 @@ spec:
   vyosNodes:
     primarynode:
       name: "vyosnode01"
-      url: "https://10.7.191.156"  
+      url: "https://10.7.1.10"  
     secondarynode:
       name: "vyosnode02"
-      url: "https://10.7.191.157"
+      url: "https://10.7.1.20"
   rules:
   - ruleNumber: 3505
     action: "accept"
