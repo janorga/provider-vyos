@@ -4,7 +4,7 @@ metadata:
   name: addtoaddressgroup-example
 spec:
   forProvider:
-    vyosUrl: "https://10.7.191.156"
+    vyosUrl: "https://10.7.1.10"
     ipAddress: 7.7.7.25
     addressGroups:
     - G-21-TCP
