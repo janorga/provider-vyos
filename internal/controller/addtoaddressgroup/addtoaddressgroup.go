@@ -333,23 +333,25 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 			address_group_todelete = append(address_group_todelete, followed_address_group)
 		}
 	}
-	//*** Delete not found rules on last applied configuration
-	path := "firewall group address-group"
+	if len(address_group_todelete) > 0 {
+		//*** Delete not found rules on last applied configuration
+		path := "firewall group address-group"
 
-	valueMap := make(map[string]string)
-	for _, group := range address_group_todelete {
-		valueMap[group+" address"] = cr.Status.AtProvider.State.FollowedIPAddress
-	}
-	vyosclient := c.service.New()
-	err := vyosclient.Config.Delete(ctx, path, valueMap)
-	if err != nil {
-		fmt.Printf("Cannot Delete: %+v", cr)
-		fmt.Printf("Error: %+v", err)
-		return managed.ExternalUpdate{
-			ConnectionDetails: managed.ConnectionDetails{},
-		}, err
-	} else {
-		fmt.Printf("Deleted: %+v", cr)
+		valueMap := make(map[string]string)
+		for _, group := range address_group_todelete {
+			valueMap[group+" address"] = cr.Status.AtProvider.State.FollowedIPAddress
+		}
+		vyosclient := c.service.New()
+		err := vyosclient.Config.Delete(ctx, path, valueMap)
+		if err != nil {
+			fmt.Printf("Cannot Delete: %+v", cr)
+			fmt.Printf("Error: %+v", err)
+			return managed.ExternalUpdate{
+				ConnectionDetails: managed.ConnectionDetails{},
+			}, err
+		} else {
+			fmt.Printf("Deleted: %+v", cr)
+		}
 	}
 
 	//*** Create/Update rules

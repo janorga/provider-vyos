@@ -346,27 +346,29 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 			rules_not_found = append(rules_not_found, f_rule)
 		}
 	}
-	//*** Delete not found rules on last applied configuration
-	path := "firewall name WAN-INBOUND"
-	delete_rules := make(map[string]string)
-	for _, rule_number := range rules_not_found {
-		delete_rules["rule "+fmt.Sprint(rule_number)] = ""
-	}
-	vyosclient := c.service.New()
-	err := vyosclient.Config.Delete(ctx, path, delete_rules)
-	if err != nil {
-		fmt.Printf("Cannot Delete: %+v", cr)
-		fmt.Printf("Error: %+v", err)
-		return managed.ExternalUpdate{
-			ConnectionDetails: managed.ConnectionDetails{},
-		}, err
-	} else {
-		fmt.Printf("Deleted: %+v", cr)
+	if len(rules_not_found) > 0 {
+		//*** Delete not found rules on last applied configuration
+		path := "firewall name WAN-INBOUND"
+		delete_rules := make(map[string]string)
+		for _, rule_number := range rules_not_found {
+			delete_rules["rule "+fmt.Sprint(rule_number)] = ""
+		}
+		vyosclient := c.service.New()
+		err := vyosclient.Config.Delete(ctx, path, delete_rules)
+		if err != nil {
+			fmt.Printf("Cannot Delete: %+v", cr)
+			fmt.Printf("Error: %+v", err)
+			return managed.ExternalUpdate{
+				ConnectionDetails: managed.ConnectionDetails{},
+			}, err
+		} else {
+			fmt.Printf("Deleted: %+v", cr)
+		}
 	}
 	//*** Re-Create rules
 	//TODO: Re-Create only modified rules
-	vyosclient = c.service.New()
-	err = createUpdate(ctx, cr, vyosclient)
+	vyosclient := c.service.New()
+	err := createUpdate(ctx, cr, vyosclient)
 
 	return managed.ExternalUpdate{
 		// Optionally return any details that may be required to connect to the
